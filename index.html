@@ -3,564 +3,397 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>老師的植感手記 | 能量支持系統</title>
-    <!-- 引入 Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
-
+    <title>課堂秩序噪音偵測器</title>
     <style>
+        :root {
+            --bg-color: #e0f7fa;
+            --text-color: #37474f;
+            --meter-color: #4caf50;
+        }
+
         body {
-            font-family: 'Zen Maru Gothic', sans-serif;
-            background-color: #FDFCF8;
-            color: #5D5C58;
-            overflow-x: hidden;
-        }
-
-        /* 隱藏捲軸但保留功能 */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
-
-        .card-shadow {
-            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-        }
-
-        /* 背景紋理 */
-        .paper-texture {
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-        }
-
-        /* Tab 切換動畫 */
-        .tab-content {
-            display: none;
-            opacity: 0;
-            transition: opacity 0.4s ease-in-out;
-        }
-        .tab-content.active {
-            display: block;
-            opacity: 1;
-            animation: fadeIn 0.5s ease-out forwards;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* 能量卡片翻轉效果 */
-        .flip-card {
-            background-color: transparent;
-            width: 100%;
-            height: 280px;
-            perspective: 1000px;
-            cursor: pointer;
-        }
-        .flip-card-inner {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            text-align: center;
-            transition: transform 0.8s;
-            transform-style: preserve-3d;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            border-radius: 20px;
-        }
-        .flip-card.flipped .flip-card-inner {
-            transform: rotateY(180deg);
-        }
-        .flip-card-front, .flip-card-back {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-            border-radius: 20px;
+            font-family: 'Segoe UI', Microsoft JhengHei, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
             display: flex;
-            align-items: center;
-            justify-content: center;
             flex-direction: column;
-        }
-        .flip-card-front {
-            background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%);
-            color: white;
-        }
-        .flip-card-back {
-            background-color: white;
-            color: #5D5C58;
-            transform: rotateY(180deg);
-            border: 2px solid #FFF0F5;
-        }
-
-        /* 呼吸動畫 */
-        .breathing-circle {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(167,243,208,1) 0%, rgba(52,211,153,0.2) 70%);
-            animation: breathe 8s infinite ease-in-out;
-            display: flex;
             align-items: center;
             justify-content: center;
-            color: #065F46;
-            font-weight: bold;
-        }
-        @keyframes breathe {
-            0%, 100% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.5); opacity: 0.4; }
+            height: 100vh;
+            transition: background-color 0.3s ease;
+            overflow: hidden; /* 防止震動時出現卷軸 */
         }
 
-        /* 碎紙機動畫 */
-        @keyframes shred {
-            0% { transform: translateY(0) scale(1); opacity: 1; }
-            50% { transform: translateY(50px) scale(0.9) skewX(10deg); opacity: 0.5; }
-            100% { transform: translateY(100px) scale(0); opacity: 0; }
-        }
-        .shredding {
-            animation: shred 1s ease-in forwards;
+        /* 狀態類別 */
+        body.state-quiet { background-color: #e8f5e9; } /* 淺綠 */
+        body.state-warn { background-color: #fff3e0; } /* 淺橘 */
+        body.state-loud { 
+            background-color: #ffebee; 
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        } /* 淺紅 + 震動 */
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
         }
 
-        /* 灑水壺搖擺動畫 */
-        @keyframes tip {
-            0%, 100% { transform: rotate(0deg); }
-            50% { transform: rotate(-20deg); }
-        }
-        .animate-tip {
-            animation: tip 3s ease-in-out infinite;
-            transform-origin: bottom left;
-        }
-
-        /* 按鈕樣式 */
-        .nav-btn {
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
             position: relative;
-            color: #9CA3AF;
         }
-        .nav-btn.active {
-            color: #059669; /* Emerald 600 */
-        }
-        .nav-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 6px;
-            height: 6px;
-            background-color: #059669;
-            border-radius: 50%;
+
+        h1 { margin-top: 0; color: #455a64; }
+
+        /* 表情與狀態顯示 */
+        .feedback-area {
+            margin: 20px 0;
         }
         
-        .trait-btn.selected {
-            background-color: #10B981; /* Emerald 500 */
-            color: white;
-            border-color: #10B981;
+        .emoji {
+            font-size: 120px;
+            display: block;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
+
+        .status-text {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        /* 音量條 */
+        .meter-container {
+            width: 100%;
+            height: 40px;
+            background-color: #eceff1;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+            position: relative;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .meter-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4caf50;
+            border-radius: 20px;
+            transition: width 0.1s linear, background-color 0.2s;
+        }
+
+        .threshold-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #ff5252;
+            left: 70%; /* 預設位置 */
+            z-index: 2;
+            opacity: 0.7;
+        }
+        
+        .threshold-label {
+            position: absolute;
+            top: -25px;
+            left: 70%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            color: #ff5252;
+            font-weight: bold;
+        }
+
+        /* 遊戲化數據 */
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        .stat-box h3 { margin: 0 0 5px 0; font-size: 1rem; color: #78909c; }
+        .stat-box p { margin: 0; font-size: 1.5rem; font-weight: bold; color: #37474f; }
+
+        /* 控制面板 */
+        .controls {
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            margin-top: 20px;
+        }
+
+        button#startBtn {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(33, 150, 243, 0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        button#startBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 8px rgba(33, 150, 243, 0.4); }
+        button#startBtn:active { transform: translateY(0); }
+        
+        button#resetBtn {
+            background-color: #90a4ae;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+            display: none;
+        }
+
+        .settings {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .slider-wrapper {
+            width: 80%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type=range] { flex-grow: 1; }
+        label { white-space: nowrap; font-size: 0.9rem; color: #666; }
+
     </style>
 </head>
-<body class="min-h-screen flex flex-col paper-texture selection:bg-green-100 selection:text-green-800">
+<body>
 
-    <!-- 頂部導航 -->
-    <header class="w-full bg-white/90 backdrop-blur-md sticky top-0 z-50 border-b border-stone-100 shadow-sm">
-        <div class="max-w-4xl mx-auto px-4 h-16 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-600 rounded-lg flex items-center justify-center text-white">
-                    <i class="fa-solid fa-leaf"></i>
-                </div>
-                <h1 class="text-xl md:text-2xl font-bold text-stone-700 tracking-wide">老師的植感手記</h1>
-                
-                <!-- 新增：可愛灑水壺圖案 -->
-                <div class="ml-2 w-8 h-8 text-emerald-400 animate-tip hidden md:block" title="為您灌溉能量">
-                    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18.8 6.2C18.4 5.8 17.8 5.8 17.4 6.2L15 8.6V8C15 5.2 12.8 3 10 3H6C3.2 3 1 5.2 1 8V16C1 18.8 3.2 21 6 21H13C15.8 21 18 18.8 18 16V13.8L19.6 12.2C20 11.8 20 11.2 19.6 10.8L18.8 10L20.2 8.6C20.6 8.2 20.6 7.6 20.2 7.2L18.8 6.2ZM13 19H6C4.3 19 3 17.7 3 16V8C3 6.3 4.3 5 6 5H10C11.7 5 13 6.3 13 8V16C13 16.6 12.8 17.1 12.6 17.6C12.9 18 13 18.5 13 19ZM16 13V11L18 13H16Z" opacity="0.8"/>
-                        <circle cx="2" cy="18" r="1" fill="#6EE7B7" class="animate-ping" style="animation-duration: 2s;"/>
-                        <circle cx="4" cy="22" r="1" fill="#6EE7B7" class="animate-ping" style="animation-duration: 2.5s;"/>
-                    </svg>
-                </div>
-            </div>
-            
-            <nav class="flex gap-6 md:gap-8">
-                <button onclick="switchTab('healing')" id="tab-btn-healing" class="nav-btn active font-bold text-sm md:text-base flex items-center gap-2 hover:text-emerald-600 transition">
-                    <i class="fa-solid fa-sun"></i> 能量充電
-                </button>
-                <button onclick="switchTab('work')" id="tab-btn-work" class="nav-btn font-bold text-sm md:text-base flex items-center gap-2 hover:text-emerald-600 transition">
-                    <i class="fa-solid fa-pen-nib"></i> 園丁工具
-                </button>
-            </nav>
+    <div class="container">
+        <h1>😄 班級秩序守護者</h1>
+        
+        <div class="feedback-area">
+            <span class="emoji" id="emoji">😴</span>
+            <span class="status-text" id="statusText" style="color: #9e9e9e;">點擊按鈕開始</span>
         </div>
-    </header>
 
-    <main class="flex-grow w-full max-w-4xl mx-auto px-4 py-6 md:py-8 relative">
+        <div class="meter-container">
+            <div class="meter-bar" id="meterBar"></div>
+            <div class="threshold-line" id="thresholdLine"></div>
+        </div>
 
-        <!-- ======================= TAB 1: 能量充電 (Healing) ======================= -->
-        <div id="tab-healing" class="tab-content active space-y-8">
-            
-            <!-- 歡迎語 -->
-            <div class="text-center space-y-2 mb-8 animate-fade-in">
-                <h2 class="text-2xl md:text-3xl font-black text-stone-700">歡迎回來，親愛的園丁</h2>
-                <p class="text-stone-500">先別急著工作，把這幾分鐘留給自己。</p>
+        <div class="stats-container">
+            <div class="stat-box">
+                <h3>安靜持續時間</h3>
+                <p id="timer">00:00</p>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                <!-- 1. 能量守護卡 -->
-                <div class="bg-white rounded-3xl p-6 card-shadow border border-stone-50 relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-100 rounded-full blur-3xl -mr-16 -mt-16 opacity-50"></div>
-                    
-                    <h3 class="font-bold text-stone-700 mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-star text-yellow-400"></i> 今日守護小語
-                    </h3>
-                    
-                    <div class="flip-card" onclick="flipCard(this)">
-                        <div class="flip-card-inner">
-                            <div class="flip-card-front">
-                                <i class="fa-regular fa-lightbulb text-5xl mb-4 opacity-80"></i>
-                                <p class="font-bold text-lg tracking-widest">點擊翻牌</p>
-                                <p class="text-xs mt-2 opacity-75">接收宇宙給您的訊息</p>
-                            </div>
-                            <div class="flip-card-back p-6">
-                                <i class="fa-solid fa-quote-left text-green-200 text-3xl absolute top-4 left-4"></i>
-                                <p id="card-content" class="text-lg font-bold text-stone-600 leading-relaxed">
-                                    「您的存在本身，就是孩子們的一道光。」
-                                </p>
-                                <i class="fa-solid fa-quote-right text-green-200 text-3xl absolute bottom-4 right-4"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="text-center text-xs text-stone-400 mt-4">覺得需要力量時，隨時可以點擊翻閱</p>
-                </div>
-
-                <!-- 2. 深呼吸調節 -->
-                <div class="bg-white rounded-3xl p-6 card-shadow border border-stone-50 flex flex-col items-center justify-center relative overflow-hidden">
-                    <div class="absolute bottom-0 left-0 w-32 h-32 bg-green-100 rounded-full blur-3xl -ml-16 -mb-16 opacity-50"></div>
-                    
-                    <h3 class="font-bold text-stone-700 mb-8 self-start w-full flex items-center gap-2">
-                        <i class="fa-solid fa-wind text-green-400"></i> 深呼吸練習
-                    </h3>
-                    
-                    <div class="breathing-circle">
-                        <span class="text-sm">吸氣...</span>
-                    </div>
-                    
-                    <p class="text-center text-xs text-stone-400 mt-8">跟隨光圈的節奏，吸氣... 吐氣...</p>
-                    <p class="text-center text-xs text-stone-400">讓焦慮隨著氣息排出體外</p>
-                </div>
-            </div>
-
-            <!-- 3. 情緒轉化區 (碎紙機) -->
-            <div class="bg-gradient-to-r from-stone-50 to-stone-100 rounded-3xl p-6 md:p-8 card-shadow border border-stone-200">
-                <div class="max-w-2xl mx-auto">
-                    <h3 class="font-bold text-stone-700 mb-2 flex items-center gap-2">
-                        <i class="fa-solid fa-trash-can text-stone-400"></i> 情緒垃圾桶
-                    </h3>
-                    <p class="text-sm text-stone-500 mb-4">有什麼煩心事嗎？寫下來，我們幫您處理掉，不帶走任何負面情緒。</p>
-                    
-                    <div id="worry-box" class="relative">
-                        <textarea id="worry-input" rows="3" class="w-full bg-white border border-stone-300 rounded-xl p-4 focus:outline-none focus:ring-2 focus:ring-stone-300 transition resize-none" placeholder="在這裡輸入讓您煩躁的事情..."></textarea>
-                        <button onclick="shredWorry()" class="absolute bottom-3 right-3 bg-stone-700 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-stone-900 transition flex items-center gap-2">
-                            <i class="fa-solid fa-paper-plane"></i> 放下
-                        </button>
-                    </div>
-
-                    <!-- 轉化後的訊息 -->
-                    <div id="healing-msg" class="hidden text-center py-8">
-                        <div class="text-5xl mb-4 animate-bounce">✨</div>
-                        <h4 class="text-xl font-bold text-green-600 mb-2">都過去了！</h4>
-                        <p class="text-stone-500">您已經清除了負能量，現在的您很棒、很乾淨。</p>
-                        <button onclick="resetWorry()" class="mt-4 text-sm text-stone-400 underline hover:text-stone-600">還有其他煩惱嗎？</button>
-                    </div>
-                </div>
+            <div class="stat-box">
+                <h3>最高紀錄</h3>
+                <p id="bestRecord">00:00</p>
             </div>
         </div>
 
-        <!-- ======================= TAB 2: 園丁工具 (Work) ======================= -->
-        <div id="tab-work" class="tab-content space-y-6">
-            
-            <div class="flex items-center justify-between">
-                <h2 class="text-xl font-bold text-stone-700">評語產生器</h2>
-                <span class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">助手模式</span>
-            </div>
+        <div class="controls">
+            <button id="startBtn">🎤 啟動麥克風</button>
+            <button id="resetBtn">重置紀錄</button>
 
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <!-- 左側：輸入與選擇 -->
-                <div class="md:col-span-7 space-y-6">
-                    
-                    <!-- 學生資料 -->
-                    <div class="bg-white rounded-2xl p-6 card-shadow border border-stone-100">
-                        <div class="flex gap-4">
-                            <div class="flex-1">
-                                <label class="block text-xs text-stone-400 mb-1">學生姓名</label>
-                                <input type="text" id="studentName" placeholder="例如：小明" class="w-full bg-stone-50 border border-stone-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 transition text-stone-700">
-                            </div>
-                            <div class="w-1/3">
-                                <label class="block text-xs text-stone-400 mb-1">代稱</label>
-                                <select id="pronoun" class="w-full bg-stone-50 border border-stone-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-200 transition text-stone-700">
-                                    <option value="name">用名字</option>
-                                    <option value="該生">該生</option>
-                                    <option value="他">他</option>
-                                    <option value="她">她</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 特質選擇 -->
-                    <div class="bg-white rounded-2xl p-6 card-shadow border border-stone-100">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="font-bold text-stone-700 text-sm">特質標籤</h3>
-                            <button onclick="clearTraits()" class="text-xs text-stone-400 hover:text-red-400 transition">清除</button>
-                        </div>
-
-                        <div class="space-y-5">
-                            <div>
-                                <h4 class="text-xs font-bold text-blue-400 mb-2">學習表現</h4>
-                                <div class="flex flex-wrap gap-2" id="tags-learning"></div>
-                            </div>
-                            <div>
-                                <h4 class="text-xs font-bold text-orange-400 mb-2">個性人際</h4>
-                                <div class="flex flex-wrap gap-2" id="tags-personality"></div>
-                            </div>
-                            <div>
-                                <h4 class="text-xs font-bold text-stone-400 mb-2">溫馨叮嚀</h4>
-                                <div class="flex flex-wrap gap-2" id="tags-improve"></div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="settings" id="settingsPanel" style="display:none;">
+                <div class="slider-wrapper">
+                    <label>靈敏度 (麥克風增益)</label>
+                    <input type="range" id="sensitivity" min="1" max="300" value="150">
                 </div>
-
-                <!-- 右側：結果 -->
-                <div class="md:col-span-5 flex flex-col">
-                    <div class="bg-white rounded-2xl p-6 card-shadow border border-stone-100 h-full flex flex-col sticky top-24">
-                        <div class="flex-grow relative">
-                            <textarea id="resultArea" 
-                                class="w-full h-64 md:h-full resize-none bg-stone-50 border-2 border-dashed border-stone-200 rounded-xl p-4 text-stone-700 leading-7 focus:outline-none focus:border-green-300 transition"
-                                placeholder="點選左側標籤，這裡會長出評語..."
-                            ></textarea>
-                        </div>
-
-                        <div class="mt-4 grid grid-cols-2 gap-3">
-                            <button onclick="generateComment()" class="col-span-1 py-3 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm">
-                                <i class="fa-solid fa-rotate-right"></i> 重組
-                            </button>
-                            <button onclick="copyToClipboard()" id="copyBtn" class="col-span-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-100 transition flex items-center justify-center gap-2 text-sm">
-                                <i class="fa-regular fa-copy"></i> 複製
-                            </button>
-                        </div>
-                        <button onclick="resetAll()" class="mt-3 w-full text-xs text-stone-400 hover:text-stone-600 py-2">
-                            下一位
-                        </button>
-                    </div>
+                <div class="slider-wrapper">
+                    <label>吵鬧門檻 (紅線)</label>
+                    <input type="range" id="threshold" min="10" max="90" value="70">
                 </div>
             </div>
         </div>
-
-    </main>
-
-    <footer class="mt-12 py-6 text-center text-stone-400 text-xs bg-white/50 border-t border-stone-100">
-        <p>Teacher's Garden v2.0 | 為教育者注入能量</p>
-    </footer>
-
-    <!-- Toast 通知 -->
-    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-stone-800/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-xl transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-50 flex items-center gap-2">
-        <i class="fa-solid fa-check-circle text-emerald-400"></i>
-        <span id="toastMsg">已複製</span>
     </div>
 
     <script>
-        // --- Tab 切換邏輯 ---
-        function switchTab(tabName) {
-            // 隱藏所有內容
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
-            
-            // 顯示選中內容
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            document.getElementById(`tab-btn-${tabName}`).classList.add('active');
-            
-            // 捲動到頂部
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        // 變數宣告
+        let audioContext, analyser, microphone, javascriptNode;
+        let isRunning = false;
+        
+        // 統計相關
+        let quietSeconds = 0;
+        let bestSeconds = 0;
+        let timerInterval = null;
+        let isTooLoud = false;
+        let warningCounter = 0; // 緩衝計數器，避免瞬間聲音造成誤判
 
-        // --- 能量卡片邏輯 ---
-        const energyQuotes = [
-            "您的用心，孩子們雖然不說，但都看在眼裡。",
-            "休息一下吧，您也是需要被照顧的。",
-            "每個孩子的花期不同，謝謝您願意等待。",
-            "您的一句話，可能改變孩子的一生。",
-            "今天的您也閃閃發光，辛苦了！",
-            "不要忘記照顧好自己的心，才能照亮別人。",
-            "深呼吸，您已經做得夠好了。",
-            "您是園丁，不需要為每一朵花的綻放時間負責，只需要灌溉。",
-            "教育是慢的藝術，請相信時間的力量。",
-            "允許自己有疲憊的時候，那是您全力以赴的證明。"
-        ];
+        // DOM 元素
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const meterBar = document.getElementById('meterBar');
+        const thresholdLine = document.getElementById('thresholdLine');
+        const emoji = document.getElementById('emoji');
+        const statusText = document.getElementById('statusText');
+        const timerDisplay = document.getElementById('timer');
+        const bestDisplay = document.getElementById('bestRecord');
+        const sensitivityInput = document.getElementById('sensitivity');
+        const thresholdInput = document.getElementById('threshold');
+        const body = document.body;
 
-        function flipCard(element) {
-            // 如果還沒翻開，隨機換一句話
-            if (!element.classList.contains('flipped')) {
-                const quoteEl = document.getElementById('card-content');
-                const randomQuote = energyQuotes[Math.floor(Math.random() * energyQuotes.length)];
-                quoteEl.textContent = `「${randomQuote}」`;
-            }
-            element.classList.toggle('flipped');
-        }
-
-        // --- 情緒垃圾桶邏輯 ---
-        function shredWorry() {
-            const input = document.getElementById('worry-input');
-            const box = document.getElementById('worry-box');
-            const msg = document.getElementById('healing-msg');
-
-            if (!input.value.trim()) {
-                input.placeholder = "請先寫下您的煩惱...";
-                input.focus();
-                return;
-            }
-
-            // 動畫
-            input.classList.add('shredding');
-            setTimeout(() => {
-                box.classList.add('hidden');
-                msg.classList.remove('hidden');
-                msg.classList.add('animate-fade-in');
-                input.value = ''; // 清空
-                input.classList.remove('shredding');
-            }, 800);
-        }
-
-        function resetWorry() {
-            document.getElementById('worry-box').classList.remove('hidden');
-            document.getElementById('healing-msg').classList.add('hidden');
-        }
-
-        // --- 評語生成器資料與邏輯 ---
-        const traitData = {
-            learning: [
-                { id: 'l1', label: '專注認真', text: ['{N}上課總是專注聆聽，對於提問能積極思考。', '{N}學習態度極佳，展現出高度的專注力。', '面對課業，{N}展現出沉穩且認真的態度。'] },
-                { id: 'l2', label: '反應靈敏', text: ['{N}思維敏捷，常能舉一反三。', '課堂上{N}反應靈活，能快速掌握重點。', '{N}思路清晰，解決問題時常有令人驚喜的表現。'] },
-                { id: 'l3', label: '作業優良', text: ['{N}作業書寫工整，按時繳交，非常負責。', '從作業中可以看出{N}的用心與細膩。', '{N}自我要求高，各項作業皆高品質完成。'] },
-                { id: 'l4', label: '勇於發問', text: ['{N}遇到不懂處會主動發問，求知精神可貴。', '學習上{N}不畏困難，勇於提問。', '{N}喜歡追根究柢，透過提問讓學習更深入。'] },
-                { id: 'l5', label: '進步顯著', text: ['這學期看見了{N}顯著的進步，努力開始開花結果。', '相較學期初，{N}展現了更穩定的表現。', '{N}突破自我，學習成效有目共睹。'] }
-            ],
-            personality: [
-                { id: 'p1', label: '熱心助人', text: ['{N}心地善良，總是不吝於伸出援手。', '{N}總是熱心服務，是老師得力的小幫手。', '{N}常主動協助他人，人緣極佳。'] },
-                { id: 'p2', label: '活潑開朗', text: ['{N}個性開朗，總是面帶笑容。', '充滿活力的{N}，為班級帶來了歡樂氣氛。', '{N}正向樂觀的態度，感染了周遭同學。'] },
-                { id: 'p3', label: '沈穩內斂', text: ['{N}個性沈穩，做事按部就班。', '{N}話不多但總能默默做好本分。', '{N}性格內斂懂事，處事有條不紊。'] },
-                { id: 'p4', label: '領導能力', text: ['{N}具備領袖氣質，能有效組織同學。', '{N}展現了出色的協調與領導能力。', '{N}有大將之風，既有主見又能傾聽。'] },
-                { id: 'p5', label: '富有創意', text: ['{N}想像力豐富，作品常展現獨特創意。', '{N}不拘泥框架，總能提出新點子。', '{N}創造力豐富，看事情角度有趣。'] }
-            ],
-            improve: [
-                { id: 'i1', label: '加強細心', text: ['若能在細節處更留心，{N}的表現會更完美。', '期許{N}作答時放慢速度，減少粗心。', '若能培養更細膩的觀察力，{N}會更出色。'] },
-                { id: 'i2', label: '提升自信', text: ['{N}很有實力，希望未來能更勇敢展現自己。', '相信自己，{N}，你的想法很棒。', '期許{N}多給自己信心，你比想像中更棒。'] },
-                { id: 'i3', label: '情緒管理', text: ['學習適度表達情緒，會讓{N}互動更順利。', '遇到挫折時期許{N}能深呼吸冷靜面對。', '若能更有耐心傾聽，{N}的人際關係會更和諧。'] },
-                { id: 'i4', label: '專注力', text: ['期許{N}能減少分心，集中注意力。', '若能訓練更長時間的專注，{N}效率會提升。', '試著排除干擾，{N}能發揮聰明資質。'] }
-            ]
-        };
-
-        let selectedTraits = new Set();
-
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            renderTags();
+        // 更新紅線位置
+        thresholdInput.addEventListener('input', (e) => {
+            thresholdLine.style.left = e.target.value + '%';
         });
 
-        function renderTags() {
-            createTagButtons('tags-learning', traitData.learning, 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50');
-            createTagButtons('tags-personality', traitData.personality, 'bg-white border-orange-200 text-orange-600 hover:bg-orange-50');
-            createTagButtons('tags-improve', traitData.improve, 'bg-white border-stone-300 text-stone-500 hover:bg-stone-50');
+        // 格式化時間 MM:SS
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
         }
 
-        function createTagButtons(containerId, data, colorClass) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            data.forEach(item => {
-                const btn = document.createElement('button');
-                btn.className = `trait-btn px-3 py-1.5 rounded-full border text-sm font-medium transition ${colorClass}`;
-                btn.textContent = item.label;
-                btn.dataset.id = item.id;
-                btn.onclick = () => toggleTrait(btn, item.id);
-                container.appendChild(btn);
-            });
-        }
-
-        function toggleTrait(btn, id) {
-            if (selectedTraits.has(id)) {
-                selectedTraits.delete(id);
-                btn.classList.remove('selected');
-            } else {
-                selectedTraits.add(id);
-                btn.classList.add('selected');
-            }
-            generateComment();
-        }
-
-        function clearTraits() {
-            selectedTraits.clear();
-            document.querySelectorAll('.trait-btn').forEach(btn => btn.classList.remove('selected'));
-            generateComment();
-        }
-
-        function getName() {
-            const nameInput = document.getElementById('studentName').value.trim();
-            const pronoun = document.getElementById('pronoun').value;
-            if (!nameInput && pronoun === 'name') return '同學';
-            if (pronoun === 'name') return nameInput;
-            return pronoun;
-        }
-
-        function generateComment() {
-            const name = getName();
-            const resultArea = document.getElementById('resultArea');
-            if (selectedTraits.size === 0) {
-                resultArea.value = '';
-                return;
-            }
-            let commentsList = [];
-            ['learning', 'personality', 'improve'].forEach(category => {
-                traitData[category].forEach(item => {
-                    if (selectedTraits.has(item.id)) {
-                        let sentence = item.text[Math.floor(Math.random() * item.text.length)];
-                        sentence = sentence.replace(/{N}/g, name);
-                        commentsList.push(sentence);
+        // 計時器邏輯
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!isTooLoud && isRunning) {
+                    quietSeconds++;
+                    timerDisplay.textContent = formatTime(quietSeconds);
+                    
+                    if (quietSeconds > bestSeconds) {
+                        bestSeconds = quietSeconds;
+                        bestDisplay.textContent = formatTime(bestSeconds);
+                        bestDisplay.style.color = '#ff9800'; // 破紀錄亮色
                     }
-                });
-            });
-            resultArea.value = commentsList.join(' ');
+                }
+            }, 1000);
         }
 
-        document.getElementById('studentName').addEventListener('input', generateComment);
-        document.getElementById('pronoun').addEventListener('change', generateComment);
+        function resetTimer() {
+            quietSeconds = 0;
+            timerDisplay.textContent = "00:00";
+            timerDisplay.style.color = "#37474f";
+            bestDisplay.style.color = "#37474f";
+        }
 
-        function copyToClipboard() {
-            const text = document.getElementById('resultArea').value;
-            if (!text) {
-                showToast('沒有內容可以複製喔', 'error');
-                return;
+        // 視覺更新主邏輯
+        function updateUI(volume) {
+            const threshold = parseInt(thresholdInput.value); // 0-100
+            
+            // 設定長條圖寬度
+            meterBar.style.width = volume + '%';
+
+            // 狀態判斷
+            if (volume > threshold) {
+                // 太吵了
+                warningCounter++;
+                if (warningCounter > 2) { // 連續偵測到幾次才觸發，避免瞬間雜音
+                    isTooLoud = true;
+                    body.className = 'state-loud';
+                    emoji.textContent = '🤬'; // 或 😱
+                    statusText.textContent = '太吵了！安靜！';
+                    statusText.style.color = '#d32f2f';
+                    meterBar.style.backgroundColor = '#f44336';
+                    
+                    // 重置當前計時，但不重置最高紀錄
+                    quietSeconds = 0; 
+                    timerDisplay.textContent = "00:00";
+                    timerDisplay.style.color = "#d32f2f"; // 警告色
+                }
+            } else if (volume > threshold * 0.7) {
+                // 警告區 (黃色)
+                warningCounter = 0;
+                isTooLoud = false;
+                body.className = 'state-warn';
+                emoji.textContent = '🤫';
+                statusText.textContent = '注意音量...';
+                statusText.style.color = '#ff9800';
+                meterBar.style.backgroundColor = '#ff9800';
+                timerDisplay.style.color = "#37474f";
+            } else {
+                // 安靜區 (綠色)
+                warningCounter = 0;
+                isTooLoud = false;
+                body.className = 'state-quiet';
+                emoji.textContent = '😊';
+                statusText.textContent = '很棒，保持安靜';
+                statusText.style.color = '#2e7d32';
+                meterBar.style.backgroundColor = '#4caf50';
+                timerDisplay.style.color = "#37474f";
             }
-            navigator.clipboard.writeText(text).then(() => {
-                showToast('評語已複製，辛苦了！');
-            });
         }
 
-        function resetAll() {
-            document.getElementById('studentName').value = '';
-            clearTraits();
+        // 啟動音訊處理
+        async function startMonitoring() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                javascriptNode = audioContext.createScriptProcessor(2048, 1, 1);
+
+                analyser.smoothingTimeConstant = 0.8;
+                analyser.fftSize = 1024;
+
+                microphone.connect(analyser);
+                analyser.connect(javascriptNode);
+                javascriptNode.connect(audioContext.destination);
+
+                javascriptNode.onaudioprocess = function() {
+                    const array = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(array);
+                    
+                    let values = 0;
+                    const length = array.length;
+                    for (let i = 0; i < length; i++) {
+                        values += array[i];
+                    }
+
+                    // 計算平均音量並標準化
+                    const average = values / length;
+                    
+                    // 根據靈敏度調整數值
+                    const sensitivity = parseInt(sensitivityInput.value) / 100;
+                    let finalVolume = average * sensitivity; // 放大訊號
+                    
+                    // 限制在 0-100 之間
+                    finalVolume = Math.min(100, Math.max(0, finalVolume));
+                    
+                    updateUI(finalVolume);
+                };
+
+                // 更新介面狀態
+                isRunning = true;
+                startBtn.style.display = 'none';
+                resetBtn.style.display = 'inline-block';
+                settingsPanel.style.display = 'flex';
+                startTimer();
+
+            } catch (err) {
+                console.error(err);
+                alert('無法存取麥克風。請確認：\n1. 您已按下「允許」使用麥克風。\n2. 若在電腦上執行，請確認網頁網址是 https 開頭或 localhost (瀏覽器安全限制)。');
+            }
         }
 
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            const msgSpan = document.getElementById('toastMsg');
-            const icon = toast.querySelector('i');
-            msgSpan.textContent = message;
-            if (type === 'error') icon.className = 'fa-solid fa-circle-exclamation text-red-400';
-            else icon.className = 'fa-solid fa-check-circle text-emerald-400';
-            toast.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
-            }, 3000);
-        }
+        // 事件監聽
+        startBtn.addEventListener('click', startMonitoring);
+        
+        resetBtn.addEventListener('click', () => {
+            resetTimer();
+            bestSeconds = 0;
+            bestDisplay.textContent = "00:00";
+            bestDisplay.style.color = "#37474f";
+        });
+
     </script>
 </body>
 </html>
